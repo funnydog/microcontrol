@@ -1,18 +1,6 @@
 /*
-  ChibiOS - Copyright (C) 2006..2015 Giovanni Di Sirio
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-*/
+ * main.c
+ */
 
 #include "ch.h"
 #include "hal.h"
@@ -94,23 +82,26 @@ static THD_FUNCTION(BreatheThread, arg)
 
 static size_t read_line(char *dst, size_t len)
 {
-	msg_t c;
 	size_t pos = 0;
 	len--;
-	while (pos < len && (c = sduGet(&SDU1)) != '\n' && c != '\r') {
-		if (c == Q_RESET) {
+	while (pos < len) {
+		msg_t c = sduGet(&SDU1);
+		if (c == Q_RESET || c == '\n' || c == '\r') {
 			break;
-		} else if (c != 0x7F) {
+		} else if (0x20 <= c && c < 0x7F) {
 			sduPut(&SDU1, c);
 			dst[pos] = c;
 			pos++;
-		} else if (pos > 0) {
+		} else if (c == 0x7F && pos > 0) {
 			sduPut(&SDU1, '\b');
 			sduPut(&SDU1, ' ');
 			sduPut(&SDU1, '\b');
 			pos--;
 		} else {
-			/* backspace ignored if pos == 0 */
+			/*
+			 * backspace ignored if pos == 0 along with
+			 * other non printable characters
+			 */
 		}
 	}
 	sduPut(&SDU1, '\r');
