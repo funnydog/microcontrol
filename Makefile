@@ -218,3 +218,6 @@ ULIBS =
 
 RULESPATH = $(CHIBIOS)/os/common/startup/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
+
+flash: build/ch.hex
+	teensy_loader_cli -vw --mcu=mk20dx256 build/ch.hex
