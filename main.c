@@ -59,7 +59,7 @@ static THD_FUNCTION(BreatheThread, arg)
 
 #define sduGet(sdup) chnGetTimeout((sdup), TIME_INFINITE)
 #define sduPut(sdup, b) chnPutTimeout((sdup), (b), TIME_INFINITE)
-#define sduWrite(sdup, str) chnWrite((sdup), (uint8_t *)(str), sizeof((str)-1))
+#define sduWrite(sdup, str, len) chnWrite((sdup), (uint8_t *)(str), (len))
 
 static size_t read_line(char *dst, size_t len)
 {
@@ -74,7 +74,7 @@ static size_t read_line(char *dst, size_t len)
 			dst[pos] = c;
 			pos++;
 		} else if (c == 0x7F && pos > 0) {
-			sduWrite(&SDU1, "\b \b");
+			sduWrite(&SDU1, "\b \b", 3);
 			pos--;
 		} else {
 			/*
@@ -83,7 +83,7 @@ static size_t read_line(char *dst, size_t len)
 			 */
 		}
 	}
-	sduWrite(&SDU1, "\r\n");
+	sduWrite(&SDU1, "\r\n", 2);
 	if (len) {
 		dst[pos] = 0;
 	}
@@ -213,7 +213,7 @@ static int setled(int argc, char *argv[])
 		case 'g': mask |= 2; break;
 		case 'b': mask |= 4; break;
 		default:
-			sduWrite(&SDU1, "wrong option\r\n");
+			sduWrite(&SDU1, "wrong option\r\n", 16);
 			return -1;
 		}
 	}
@@ -224,7 +224,7 @@ static int setled(int argc, char *argv[])
 	char *end;
 	uint16_t value = strtoul(argv[optind], &end, 10);
 	if (argv[optind] == end) {
-		sduWrite(&SDU1, "wrong value\r\n");
+		sduWrite(&SDU1, "wrong value\r\n", 15);
 		return -1;
 	}
 
@@ -257,8 +257,8 @@ static int execute_cmd(int argc, char *argv[])
 
 	/* dump the arguments */
 	for(; *argv; argv++) {
-		chnWrite(&SDU1, (uint8_t *)*argv, strlen(*argv));
-		sduWrite(&SDU1, "*\r\n");
+		sduWrite(&SDU1, *argv, strlen(*argv));
+		sduWrite(&SDU1, "*\r\n", 3);
 	}
 	return -1;
 }
@@ -274,7 +274,8 @@ static THD_FUNCTION(shell, arg)
 	static char *argv[10];
 
 	while (true) {
-		sduWrite(&SDU1, "$ ");
+		/* prompt */
+		sduWrite(&SDU1, "control:~$ ", 11);
 
 		read_line(line, sizeof(line));
 		argc = split_args(argv, sizeof(argv) / sizeof(argv[0]), line);
