@@ -63,12 +63,32 @@ static THD_FUNCTION(BreatheThread, arg)
 
 static size_t read_line(char *dst, size_t len)
 {
+	int escape = 0;
+	int bracket = 0;
 	size_t pos = 0;
 	len--;
 	while (pos < len) {
 		msg_t c = sduGet(&SDU1);
 		if (c == Q_RESET || c == '\n' || c == '\r') {
 			break;
+		} else if (escape) {
+			escape = 0;
+			if (c == '[') {
+				bracket = 1;
+			}
+		} else if (bracket) {
+			bracket = 0;
+			if (c == 'A') {
+				/* UP */
+			} else if (c == 'B') {
+				/* DOWN */
+			} else if (c == 'C') {
+				/* LEFT */
+			} else if (c == 'D') {
+				/* RIGHT */
+			}
+		} else if (c == 0x1B)  {
+			escape = 1;
 		} else if (0x20 <= c && c < 0x7F) {
 			sduPut(&SDU1, c);
 			dst[pos] = c;
