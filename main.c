@@ -24,7 +24,7 @@ static THD_FUNCTION(Thread1, arg)
 	while (true) {
 		systime_t time;
 
-		time = serusbcfg.usbp->state == USB_ACTIVE ? 250 : 500;
+		time = serusbcfg.usbp->state == USB_ACTIVE ? 150 : 500;
 		palClearPad(TEENSY_PIN13_IOPORT, TEENSY_PIN13);
 		chThdSleepMilliseconds(time);
 		palSetPad(TEENSY_PIN13_IOPORT, TEENSY_PIN13);
