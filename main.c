@@ -226,6 +226,8 @@ static int getopt(int argc, char * const argv[], const char *optstr)
 
 static int help_cmd(int argc, char *argv[])
 {
+	(void)argc;
+	(void)argv;
 	const char *str =
 		"Available commands:\r\n"
 		"help                    \t- This message\r\n"
