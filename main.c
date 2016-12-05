@@ -61,7 +61,7 @@ static THD_FUNCTION(BreatheThread, arg)
 #define sduPut(sdup, b) chnPutTimeout((sdup), (b), TIME_INFINITE)
 #define sduWrite(sdup, str, len) chnWrite((sdup), (uint8_t *)(str), (len))
 
-static size_t read_line(char *dst, size_t len)
+static int read_line(char *dst, size_t len)
 {
 	int escape = 0;
 	int bracket = 0;
@@ -69,7 +69,9 @@ static size_t read_line(char *dst, size_t len)
 	len--;
 	while (pos < len) {
 		msg_t c = sduGet(&SDU1);
-		if (c == Q_RESET || c == '\n' || c == '\r') {
+		if (c == Q_TIMEOUT || c == Q_RESET) {
+			return -1;
+		} else if (c == '\n' || c == '\r') {
 			break;
 		} else if (escape) {
 			escape = 0;
@@ -297,7 +299,9 @@ static THD_FUNCTION(shell, arg)
 		/* prompt */
 		sduWrite(&SDU1, "control:~$ ", 11);
 
-		read_line(line, sizeof(line));
+		if (read_line(line, sizeof(line)) == -1)
+			break;
+
 		argc = split_args(argv, sizeof(argv) / sizeof(argv[0]), line);
 		if (argc)
 			execute_cmd(argc, argv);
