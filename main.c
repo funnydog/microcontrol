@@ -314,9 +314,12 @@ static THD_FUNCTION(shell, arg)
 	static int argc;
 	static char *argv[10];
 
+	const char *prompt = "control:~$ ";
+	size_t plen = strlen(prompt);
+
 	while (true) {
 		/* prompt */
-		sduWrite(&SDU1, "control:~$ ", 11);
+		sduWrite(&SDU1, prompt, plen);
 
 		if (read_line(line, sizeof(line)) == -1)
 			break;
