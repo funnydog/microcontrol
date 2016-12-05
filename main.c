@@ -224,7 +224,23 @@ static int getopt(int argc, char * const argv[], const char *optstr)
 	return optopt;
 }
 
-static int setled(int argc, char *argv[])
+static int help_cmd(int argc, char *argv[])
+{
+	const char *str =
+		"Available commands:\r\n"
+		"help                    \t- This message\r\n"
+		"setled [options] [value]\t- Set the PWM value of leds (-rgb)\r\n"
+		"\t\t\t\t  Options:\r\n"
+		"\t\t\t\t   -r set the value of the red led\r\n"
+		"\t\t\t\t   -g set the value of the green led\r\n"
+		"\t\t\t\t   -b set the value of the blue led\r\n"
+		"\r\n";
+
+	sduWrite(&SDU1, str, strlen(str));
+	return 0;
+}
+
+static int setled_cmd(int argc, char *argv[])
 {
 	uint8_t mask = 0;
 	int opt;
@@ -262,7 +278,8 @@ static struct cmd_handler
 	const char *name;
 	int (*handler)(int argc, char *argv[]);
 } handlers[] = {
-	{ "setled", setled },
+	{ "help", help_cmd },
+	{ "setled", setled_cmd },
 	{ NULL, NULL },
 };
 
@@ -303,8 +320,8 @@ static THD_FUNCTION(shell, arg)
 			break;
 
 		argc = split_args(argv, sizeof(argv) / sizeof(argv[0]), line);
-		if (argc)
-			execute_cmd(argc, argv);
+		if (argc && execute_cmd(argc, argv) < 0)
+			break;
 	}
 }
 
