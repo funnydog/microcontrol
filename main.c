@@ -224,14 +224,26 @@ static int getopt(int argc, char * const argv[], const char *optstr)
 	return optopt;
 }
 
+static int exit_cmd(int argc, char *argv[])
+{
+	(void)argc;
+	(void)argv;
+	usbDisconnectBus(serusbcfg.usbp);
+	chThdSleepMilliseconds(1500);
+	usbStart(serusbcfg.usbp, &usbcfg);
+	usbConnectBus(serusbcfg.usbp);
+	return -1;
+}
+
 static int help_cmd(int argc, char *argv[])
 {
 	(void)argc;
 	(void)argv;
 	const char *str =
 		"Available commands:\r\n"
-		"help                    \t- This message\r\n"
-		"setled [options] [value]\t- Set the PWM value of leds (-rgb)\r\n"
+		"help                    \t- this message\r\n"
+		"exit                    \t- exit the shell\r\n"
+		"setled [options] [value]\t- set the PWM value of leds (-rgb)\r\n"
 		"\t\t\t\t  Options:\r\n"
 		"\t\t\t\t   -r set the value of the red led\r\n"
 		"\t\t\t\t   -g set the value of the green led\r\n"
@@ -280,6 +292,7 @@ static struct cmd_handler
 	const char *name;
 	int (*handler)(int argc, char *argv[]);
 } handlers[] = {
+	{ "exit", exit_cmd },
 	{ "help", help_cmd },
 	{ "setled", setled_cmd },
 	{ NULL, NULL },
