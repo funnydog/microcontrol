@@ -241,13 +241,14 @@ static int help_cmd(int argc, char *argv[])
 	(void)argv;
 	const char *str =
 		"Available commands:\r\n"
-		"help                    \t- this message\r\n"
-		"exit                    \t- exit the shell\r\n"
-		"setled [options] [value]\t- set the PWM value of leds (-rgb)\r\n"
-		"\t\t\t\t  Options:\r\n"
-		"\t\t\t\t   -r set the value of the red led\r\n"
-		"\t\t\t\t   -g set the value of the green led\r\n"
-		"\t\t\t\t   -b set the value of the blue led\r\n"
+		"  help      this message\r\n"
+		"  exit      exit the shell\r\n"
+		"  setled    set the PWM value of leds (-rgb)\r\n"
+		"            Options:\r\n"
+		"             -r set the value of the red led\r\n"
+		"             -g set the value of the green led\r\n"
+		"             -b set the value of the blue led\r\n"
+		"             no option: set the value of every led\r\n"
 		"\r\n";
 
 	sduWrite(&SDU1, str, strlen(str));
