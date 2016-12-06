@@ -283,9 +283,9 @@ static struct cmd_handler
 	const char *name;
 	int (*handler)(int argc, char *argv[]);
 } handlers[] = {
-	{ "exit", exit_cmd },
-	{ "help", help_cmd },
-	{ "setled", setled_cmd },
+	{ "exit",	exit_cmd },
+	{ "help",	help_cmd },
+	{ "setled",	setled_cmd },
 	{ NULL, NULL },
 };
 
@@ -308,6 +308,9 @@ static int execute_cmd(int argc, char *argv[])
 	return -1;
 }
 
+/*
+ * shell thread
+ */
 static THD_WORKING_AREA(waShell, 256);
 static THD_FUNCTION(shell, arg)
 {
@@ -350,7 +353,9 @@ int main(void) {
 	halInit();
 	chSysInit();
 
-	/* Initialize the hardware PWM */
+	/*
+	 * Initialize the hardware PWM.
+	 */
 	SIM->SCGC6 |= SIM_SCGC6_FTM0;
 	FTM0->SC = FTM_SC_CLKS(1) | FTM_SC_PS(2);
 	FTM0->MODE = FTM_MODE_FTMEN_MASK|FTM_MODE_PWMSYNC_MASK;
