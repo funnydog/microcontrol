@@ -47,16 +47,6 @@ static struct pwm_desc
 	{ TEENSY_PIN23_IOPORT, TEENSY_PIN23, 1, 170 },
 };
 
-static THD_WORKING_AREA(waBreatheThread, 128);
-static THD_FUNCTION(BreatheThread, arg)
-{
-	(void)arg;
-	chRegSetThreadName("breather");
-	while(true) {
-		chThdSleepMilliseconds(100);
-	}
-}
-
 #define sduGet(sdup) chnGetTimeout((sdup), TIME_INFINITE)
 #define sduPut(sdup, b) chnPutTimeout((sdup), (b), TIME_INFINITE)
 #define sduWrite(sdup, str, len) chnWrite((sdup), (uint8_t *)(str), (len))
@@ -379,8 +369,6 @@ int main(void) {
 	FTM0->CNTIN = 0;
 	FTM0->CNT = 0;
 	FTM0->PWMLOAD = FTM_PWMLOAD_LDOK_MASK;
-
-	chThdCreateStatic(waBreatheThread, sizeof(waBreatheThread), NORMALPRIO, BreatheThread, NULL);
 
 	/*
 	 * Activates serial 1 (UART0) using the driver default configuration.
