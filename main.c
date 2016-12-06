@@ -214,6 +214,8 @@ static int getopt(int argc, char * const argv[], const char *optstr)
 	return optopt;
 }
 
+static int repl_exit = 0;
+
 static int exit_cmd(int argc, char *argv[])
 {
 	(void)argc;
@@ -222,7 +224,10 @@ static int exit_cmd(int argc, char *argv[])
 	chThdSleepMilliseconds(1500);
 	usbStart(serusbcfg.usbp, &usbcfg);
 	usbConnectBus(serusbcfg.usbp);
-	return -1;
+
+	repl_exit = 1;
+
+	return 0;
 }
 
 static int help_cmd(int argc, char *argv[])
@@ -324,16 +329,21 @@ static THD_FUNCTION(shell, arg)
 	const char *prompt = "control:~$ ";
 	size_t plen = strlen(prompt);
 
-	while (true) {
+	repl_exit = 0;
+	while (!repl_exit) {
 		/* prompt */
 		sduWrite(&SDU1, prompt, plen);
 
+		/* read */
 		if (read_line(line, sizeof(line)) == -1)
 			break;
 
+		/* eval */
 		argc = split_args(argv, sizeof(argv) / sizeof(argv[0]), line);
-		if (argc && execute_cmd(argc, argv) < 0)
-			break;
+		if (argc)
+			execute_cmd(argc, argv);
+
+		/* loop */
 	}
 }
 
