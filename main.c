@@ -378,7 +378,7 @@ int main(void) {
 	struct pwm_desc *d = pwm_channels;
 	for (unsigned i = 0; i < 3; i++, d++) {
 		palSetPadMode(d->port, d->pad, PAL_MODE_ALTERNATIVE_4);
-		FTM0->CHANNEL[d->ch].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSA;
+		FTM0->CHANNEL[d->ch].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
 		FTM0->CHANNEL[d->ch].CnV = 0;
 	}
 	FTM0->CNTIN = 0;
