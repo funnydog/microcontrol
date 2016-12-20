@@ -32,21 +32,6 @@ static THD_FUNCTION(Thread1, arg)
 	}
 }
 
-static struct pwm_desc
-{
-	ioportid_t port;
-	uint8_t    pad;
-	uint8_t    ch;
-	uint16_t   pos;
-} pwm_channels[3] = {
-	/* TEENSY_21, PTD6, FMT0_CH6, RED */
-	{ TEENSY_PIN21_IOPORT, TEENSY_PIN21, 6,   0 },
-	/* TEENSY_22, PTC1, FMT0_CH0, GREEN */
-	{ TEENSY_PIN22_IOPORT, TEENSY_PIN22, 0,  85 },
-	/* TEENSY_23, PTC2, FMT0_CH1, BLUE */
-	{ TEENSY_PIN23_IOPORT, TEENSY_PIN23, 1, 170 },
-};
-
 #define sduGet(sdup) chnGetTimeout((sdup), TIME_INFINITE)
 #define sduPut(sdup, b) chnPutTimeout((sdup), (b), TIME_INFINITE)
 #define sduWrite(sdup, str, len) chnWrite((sdup), (uint8_t *)(str), (len))
@@ -238,15 +223,30 @@ static int help_cmd(int argc, char *argv[])
 		"Available commands:\r\n"
 		"  help      this message\r\n"
 		"  exit      exit the shell\r\n"
-		"  setled    set the PWM value of leds (-rgb)\r\n"
+		"  reset     reset the state to the default values\r\n"
+		"  setled    set the PWM value of leds [0..4800]\r\n"
 		"            Options:\r\n"
 		"             -r set the value of the red led\r\n"
 		"             -g set the value of the green led\r\n"
 		"             -b set the value of the blue led\r\n"
 		"             no option: set the value of every led\r\n"
+		"  setdir     Set the direction of the motor\r\n"
+		"  setspeed   Set the speed of the motor [0..2400]\r\n"
 		"\r\n";
 
 	sduWrite(&SDU1, str, strlen(str));
+	return 0;
+}
+
+static int reset_cmd(int argc, char *argv[])
+{
+	(void)argc;
+	(void)argv;
+	FTM0->CHANNEL[6].CnV = 0;
+	FTM0->CHANNEL[0].CnV = 0;
+	FTM0->CHANNEL[1].CnV = 0;
+	FTM1->CHANNEL[0].CnV = 0;
+	palClearPort(TEENSY_PIN2_IOPORT, PAL_PORT_BIT(TEENSY_PIN2));
 	return 0;
 }
 
@@ -283,34 +283,72 @@ static int setled_cmd(int argc, char *argv[])
 	return 0;
 }
 
+static int setspeed_cmd(int argc, char *argv[])
+{
+	if (argc < 2)
+		return -1;
+
+	char *end;
+	uint16_t value = strtoul(argv[1], &end, 10);
+	if (argv[1] == end)
+		return -1;
+
+	FTM1->CHANNEL[0].CnV = value;
+	FTM1->PWMLOAD = FTM_PWMLOAD_LDOK_MASK;
+	return 0;
+}
+
+static int setdir_cmd(int argc, char *argv[])
+{
+	if (argc < 2)
+		return -1;
+
+	char *end;
+	uint16_t value = strtoul(argv[1], &end, 10);
+	if (argv[1] == end)
+		return -1;
+
+	if (value)
+		palSetPort(TEENSY_PIN2_IOPORT, PAL_PORT_BIT(TEENSY_PIN2));
+	else
+		palClearPort(TEENSY_PIN2_IOPORT, PAL_PORT_BIT(TEENSY_PIN2));
+
+	return 0;
+}
+
+static int dumpargs_cmd(int argc, char *argv[])
+{
+	while (argc--) {
+		sduWrite(&SDU1, "[", 1);
+		sduWrite(&SDU1, *argv, strlen(*argv));
+		sduWrite(&SDU1, "]\r\n", 3);
+		argv++;
+	}
+	return 0;
+}
+
 static struct cmd_handler
 {
 	const char *name;
 	int (*handler)(int argc, char *argv[]);
 } handlers[] = {
-	{ "exit",	exit_cmd },
-	{ "help",	help_cmd },
-	{ "setled",	setled_cmd },
-	{ NULL, NULL },
+	{ "dumpargs",   dumpargs_cmd },
+	{ "exit",	exit_cmd     },
+	{ "help",	help_cmd     },
+	{ "reset",      reset_cmd    },
+	{ "setled",	setled_cmd   },
+	{ "setspeed",   setspeed_cmd },
+	{ "setdir",     setdir_cmd   },
+	{ 0 },
 };
 
 static int execute_cmd(int argc, char *argv[])
 {
-	struct cmd_handler *t;
-	for (t = handlers; t->name; t++) {
+	for (struct cmd_handler *t = handlers; t->name; t++)
 		if (strcmp(t->name, argv[0]) == 0)
-			break;
-	}
+			return t->handler(argc, argv);
 
-	if (t->name)
-		return t->handler(argc, argv);
-
-	/* dump the arguments */
-	for(; *argv; argv++) {
-		sduWrite(&SDU1, *argv, strlen(*argv));
-		sduWrite(&SDU1, "*\r\n", 3);
-	}
-	return -1;
+	return dumpargs_cmd(argc, argv);
 }
 
 /*
@@ -347,6 +385,64 @@ static THD_FUNCTION(shell, arg)
 	}
 }
 
+/**
+ * rgb_init()  - initialize the rgb control
+ */
+static void rgb_init(void)
+{
+	/*
+	 * Initialize the hardware PWM - FlexiTimer Module
+	 */
+
+	/* FTM0 subsystem - RGB Led control */
+	SIM->SCGC6 |= SIM_SCGC6_FTM0;
+
+	/* TEENSY_PIN21, PTD6, FMT0_CH6, RED */
+	palSetPadMode(TEENSY_PIN21_IOPORT, TEENSY_PIN21, PAL_MODE_ALTERNATIVE_4);
+	FTM0->CHANNEL[6].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
+	FTM0->CHANNEL[6].CnV = 0;
+
+	/* TEENSY_PIN22, PTC1, FMT0_CH0, GREEN */
+	palSetPadMode(TEENSY_PIN22_IOPORT, TEENSY_PIN22, PAL_MODE_ALTERNATIVE_4);
+	FTM0->CHANNEL[0].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
+	FTM0->CHANNEL[0].CnV = 0;
+
+	/* TEENSY_PIN23, PTC2, FMT0_CH1, BLUE */
+	palSetPadMode(TEENSY_PIN23_IOPORT, TEENSY_PIN23, PAL_MODE_ALTERNATIVE_4);
+	FTM0->CHANNEL[1].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
+	FTM0->CHANNEL[1].CnV = 0;
+
+	FTM0->CNTIN = 0;
+	FTM0->CNT = 0;
+
+	/* 48Mhz / 10kHz = 4800 with prescaler 1 (2**0) */
+	FTM0->MOD = 4799;
+	FTM0->SC = FTM_SC_CLKS(1) | FTM_SC_PS(0);
+}
+
+/**
+ * motor_init() - initialize the motor control
+ */
+static void motor_init(void)
+{
+	/* TEENSY_PIN2, PTD0, PUSH_PULL, DIR signal */
+	palSetPadMode(TEENSY_PIN2_IOPORT, TEENSY_PIN2, PAL_MODE_OUTPUT_PUSHPULL);
+	palClearPort(TEENSY_PIN2_IOPORT, PAL_PORT_BIT(TEENSY_PIN2));
+
+	/* FTM1 module */
+	SIM->SCGC6 |= SIM_SCGC6_FTM1;
+
+	/* TEENSY_PIN3, PTA12, FTM1_CH0, PWM signal */
+	palSetPadMode(TEENSY_PIN3_IOPORT, TEENSY_PIN3, PAL_MODE_ALTERNATIVE_3);
+	FTM1->CHANNEL[0].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
+	FTM1->CHANNEL[0].CnV = 0;
+	FTM1->CNTIN = 0;
+	FTM1->CNT = 0;
+
+	/* 48Mhz / 20kHz = 2400 with prescaler 1 (2**0) */
+	FTM1->MOD = 2399;
+	FTM1->SC = FTM_SC_CLKS(1) | FTM_SC_PS(0);
+}
 
 /*
  * Application entry point.
@@ -363,27 +459,8 @@ int main(void) {
 	halInit();
 	chSysInit();
 
-	/*
-	 * Initialize the hardware PWM.
-	 */
-	SIM->SCGC6 |= SIM_SCGC6_FTM0;
-	FTM0->SC = FTM_SC_CLKS(1) | FTM_SC_PS(2);
-	FTM0->MODE = FTM_MODE_FTMEN_MASK|FTM_MODE_PWMSYNC_MASK;
-	FTM0->SYNC =  FTM_SYNC_CNTMIN_MASK|FTM_SYNC_CNTMAX_MASK
-	 	|FTM_SYNC_SWSYNC_MASK;
-	FTM0->COMBINE =  FTM_COMBINE_SYNCEN3_MASK | FTM_COMBINE_SYNCEN2_MASK
-		| FTM_COMBINE_SYNCEN1_MASK | FTM_COMBINE_SYNCEN0_MASK;
-	FTM0->SYNCONF =  FTM_SYNCONF_SYNCMODE_MASK;
-	FTM0->MOD = 4096 - 1;
-	struct pwm_desc *d = pwm_channels;
-	for (unsigned i = 0; i < 3; i++, d++) {
-		palSetPadMode(d->port, d->pad, PAL_MODE_ALTERNATIVE_4);
-		FTM0->CHANNEL[d->ch].CnSC = FTM_CnSC_MSB | FTM_CnSC_ELSB;
-		FTM0->CHANNEL[d->ch].CnV = 0;
-	}
-	FTM0->CNTIN = 0;
-	FTM0->CNT = 0;
-	FTM0->PWMLOAD = FTM_PWMLOAD_LDOK_MASK;
+	rgb_init();
+	motor_init();
 
 	/*
 	 * Activates serial 1 (UART0) using the driver default configuration.
